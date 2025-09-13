@@ -1,0 +1,317 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  username  String   @unique
+  firstName String?
+  lastName  String?
+  avatar    String?
+  
+  // Authentication
+  password  String
+  isVerified Boolean @default(false)
+  verificationToken String?
+  resetToken String?
+  resetTokenExpiry DateTime?
+  
+  // Profile
+  bio       String?
+  website   String?
+  location  String?
+  
+  // Subscription & Usage
+  plan      UserPlan @default(FREE)
+  tokensUsed Int      @default(0)
+  tokensLimit Int     @default(10000)
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  lastLoginAt DateTime?
+  
+  // Relations
+  projects  Project[]
+  conversations Conversation[]
+  apiKeys   ApiKey[]
+  sessions  UserSession[]
+  
+  @@map("users")
+}
+
+model Project {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  
+  // Project Configuration
+  framework   ProjectFramework @default(REACT)
+  template    String?
+  
+  // Generated Code
+  frontendCode String?
+  backendCode  String?
+  databaseSchema String?
+  
+  // Project Status
+  status      ProjectStatus @default(DRAFT)
+  isPublic    Boolean @default(false)
+  
+  // Deployment
+  deploymentUrl String?
+  deploymentProvider String?
+  deploymentStatus DeploymentStatus @default(NONE)
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  userId    String
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversations Conversation[]
+  versions  ProjectVersion[]
+  exports   ProjectExport[]
+  
+  @@map("projects")
+}
+
+model Conversation {
+  id        String   @id @default(cuid())
+  title     String?
+  
+  // Conversation Data
+  messages  ConversationMessage[]
+  
+  // AI Context
+  systemPrompt String?
+  context      String?
+  
+  // Status
+  isActive  Boolean @default(true)
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  @@map("conversations")
+}
+
+model ConversationMessage {
+  id        String   @id @default(cuid())
+  
+  // Message Content
+  role      MessageRole
+  content   String
+  
+  // Metadata
+  tokens    Int?
+  model     String?
+  
+  // Code Generation
+  generatedCode String?
+  codeType     String?
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  
+  // Relations
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  
+  @@map("conversation_messages")
+}
+
+model ProjectVersion {
+  id        String   @id @default(cuid())
+  version   String
+  
+  // Version Data
+  frontendCode String?
+  backendCode  String?
+  databaseSchema String?
+  
+  // Metadata
+  description String?
+  changelog   String?
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  
+  // Relations
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  @@map("project_versions")
+}
+
+model ProjectExport {
+  id        String   @id @default(cuid())
+  
+  // Export Data
+  exportType ExportType
+  filePath   String
+  fileSize   Int?
+  downloadCount Int @default(0)
+  
+  // Export Configuration
+  includeDatabase Boolean @default(true)
+  includeAssets   Boolean @default(true)
+  
+  // Status
+  status    ExportStatus @default(PENDING)
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  expiresAt DateTime?
+  
+  // Relations
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  @@map("project_exports")
+}
+
+model Template {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  category    String
+  
+  // Template Data
+  frontendCode String
+  backendCode  String?
+  databaseSchema String?
+  
+  // Configuration
+  framework   ProjectFramework
+  tags        String[]
+  
+  // Usage & Stats
+  useCount    Int @default(0)
+  rating      Float @default(0)
+  
+  // Status
+  isPublic    Boolean @default(true)
+  isFeatured  Boolean @default(false)
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  createdBy String?
+  
+  @@map("templates")
+}
+
+model ApiKey {
+  id        String   @id @default(cuid())
+  name      String
+  key       String   @unique
+  
+  // Configuration
+  permissions String[] // Array of permissions
+  
+  // Usage
+  lastUsedAt DateTime?
+  usageCount Int @default(0)
+  
+  // Status
+  isActive  Boolean @default(true)
+  expiresAt DateTime?
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  
+  // Relations
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("api_keys")
+}
+
+model UserSession {
+  id        String   @id @default(cuid())
+  sessionId String   @unique
+  
+  // Session Data
+  ipAddress String?
+  userAgent String?
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+  
+  // Relations
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("user_sessions")
+}
+
+// Enums
+enum UserPlan {
+  FREE
+  PRO
+  ENTERPRISE
+}
+
+enum ProjectFramework {
+  REACT
+  NEXTJS
+  VUE
+  NUXT
+  ANGULAR
+  SVELTE
+  VANILLA
+}
+
+enum ProjectStatus {
+  DRAFT
+  GENERATING
+  COMPLETED
+  ERROR
+}
+
+enum DeploymentStatus {
+  NONE
+  DEPLOYING
+  DEPLOYED
+  FAILED
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+enum ExportType {
+  ZIP
+  GITHUB_REPO
+  DOCKER
+}
+
+enum ExportStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
