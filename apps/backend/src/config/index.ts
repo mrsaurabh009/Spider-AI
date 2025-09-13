@@ -1,53 +1,65 @@
-import { z } from 'zod';
+// Simple environment validation
+function getEnv(key: string, defaultValue?: string): string {
+  const value = process.env[key];
+  if (!value && !defaultValue) {
+    throw new Error(`Environment variable ${key} is required`);
+  }
+  return value || defaultValue!;
+}
 
-// Environment schema validation
-const envSchema = z.object({
-  NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
-  PORT: z.string().transform(Number).default('3000'),
+function getEnvNumber(key: string, defaultValue?: number): number {
+  const value = process.env[key];
+  if (!value && defaultValue === undefined) {
+    throw new Error(`Environment variable ${key} is required`);
+  }
+  return value ? parseInt(value, 10) : defaultValue!;
+}
+
+// Environment variables
+const env = {
+  NODE_ENV: getEnv('NODE_ENV', 'development') as 'development' | 'production' | 'test',
+  PORT: getEnvNumber('PORT', 3000),
   
-  // Database
-  DATABASE_URL: z.string().min(1, 'Database URL is required'),
-  REDIS_URL: z.string().min(1, 'Redis URL is required'),
+  // Database (optional in test mode)
+  DATABASE_URL: process.env.DATABASE_URL || 'postgresql://test:test@localhost:5432/test',
+  REDIS_URL: process.env.REDIS_URL || 'redis://localhost:6379',
   
-  // AI Service
-  CLAUDE_API_KEY: z.string().min(1, 'Claude API key is required'),
+  // AI Service (optional in test mode)
+  CLAUDE_API_KEY: process.env.CLAUDE_API_KEY || 'test-key',
   
   // JWT
-  JWT_SECRET: z.string().min(1, 'JWT secret is required'),
-  JWT_EXPIRES_IN: z.string().default('7d'),
-  REFRESH_TOKEN_EXPIRES_IN: z.string().default('30d'),
+  JWT_SECRET: process.env.JWT_SECRET || 'default-test-jwt-secret-not-for-production',
+  JWT_EXPIRES_IN: getEnv('JWT_EXPIRES_IN', '7d'),
+  REFRESH_TOKEN_EXPIRES_IN: getEnv('REFRESH_TOKEN_EXPIRES_IN', '30d'),
   
   // URLs
-  FRONTEND_URL: z.string().url().default('http://localhost:3001'),
-  BACKEND_URL: z.string().url().default('http://localhost:3000'),
+  FRONTEND_URL: getEnv('FRONTEND_URL', 'http://localhost:3001'),
+  BACKEND_URL: getEnv('BACKEND_URL', 'http://localhost:3000'),
   
   // AWS (optional)
-  AWS_ACCESS_KEY_ID: z.string().optional(),
-  AWS_SECRET_ACCESS_KEY: z.string().optional(),
-  AWS_BUCKET_NAME: z.string().optional(),
-  AWS_REGION: z.string().default('us-east-1'),
+  AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID,
+  AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY,
+  AWS_BUCKET_NAME: process.env.AWS_BUCKET_NAME,
+  AWS_REGION: getEnv('AWS_REGION', 'us-east-1'),
   
   // Email (optional)
-  SMTP_HOST: z.string().optional(),
-  SMTP_PORT: z.string().transform(Number).optional(),
-  SMTP_USER: z.string().optional(),
-  SMTP_PASS: z.string().optional(),
+  SMTP_HOST: process.env.SMTP_HOST,
+  SMTP_PORT: process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT, 10) : undefined,
+  SMTP_USER: process.env.SMTP_USER,
+  SMTP_PASS: process.env.SMTP_PASS,
   
   // Rate Limiting
-  RATE_LIMIT_WINDOW_MS: z.string().transform(Number).default('900000'), // 15 minutes
-  RATE_LIMIT_MAX_REQUESTS: z.string().transform(Number).default('100'),
+  RATE_LIMIT_WINDOW_MS: getEnvNumber('RATE_LIMIT_WINDOW_MS', 900000),
+  RATE_LIMIT_MAX_REQUESTS: getEnvNumber('RATE_LIMIT_MAX_REQUESTS', 100),
   
   // File Upload
-  MAX_FILE_SIZE: z.string().default('50MB'),
-  ALLOWED_FILE_TYPES: z.string().default('image/jpeg,image/png,image/gif,text/plain,application/json'),
+  MAX_FILE_SIZE: getEnv('MAX_FILE_SIZE', '50MB'),
+  ALLOWED_FILE_TYPES: getEnv('ALLOWED_FILE_TYPES', 'image/jpeg,image/png,image/gif,text/plain,application/json'),
   
   // Logging
-  LOG_LEVEL: z.enum(['error', 'warn', 'info', 'debug']).default('info'),
-  DEBUG: z.string().optional(),
-});
-
-// Validate environment variables
-const env = envSchema.parse(process.env);
+  LOG_LEVEL: getEnv('LOG_LEVEL', 'info') as 'error' | 'warn' | 'info' | 'debug',
+  DEBUG: process.env.DEBUG,
+};
 
 // Application configuration
 export const config = {

@@ -6,6 +6,7 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",
+    "dev:test": "tsx watch src/test-server.ts",
     "build": "tsc && tsc-alias",
     "start": "node dist/server.js",
     "test": "jest",
