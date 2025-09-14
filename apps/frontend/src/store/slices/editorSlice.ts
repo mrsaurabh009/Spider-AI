@@ -4,7 +4,7 @@ import { generateCode, refineCode } from './chatSlice';
 
 const initialState: EditorState = {
   files: [],
-  activeFileIndex: 0,
+  activeFileId: null,
   theme: 'vs-dark',
   fontSize: 14,
   tabSize: 2,
@@ -17,50 +17,54 @@ const editorSlice = createSlice({
   initialState,
   reducers: {
     // File management
-    addFile: (state, action: PayloadAction<EditorFile>) => {
-      state.files.push(action.payload);
-      state.activeFileIndex = state.files.length - 1;
+    createFile: (state, action: PayloadAction<{ projectId: string; name: string; content: string; type: string }>) => {
+      const newFile = {
+        id: `file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        name: action.payload.name,
+        content: action.payload.content,
+        language: action.payload.type,
+        modified: false,
+      };
+      state.files.push(newFile);
+      state.activeFileId = newFile.id;
     },
 
-    removeFile: (state, action: PayloadAction<number>) => {
-      if (state.files.length > 1) {
-        state.files.splice(action.payload, 1);
-        if (state.activeFileIndex >= action.payload && state.activeFileIndex > 0) {
-          state.activeFileIndex--;
+    removeFile: (state, action: PayloadAction<string>) => {
+      const fileIndex = state.files.findIndex(f => f.id === action.payload);
+      if (fileIndex !== -1 && state.files.length > 1) {
+        state.files.splice(fileIndex, 1);
+        if (state.activeFileId === action.payload) {
+          state.activeFileId = state.files[0]?.id || null;
         }
       }
     },
 
-    setActiveFile: (state, action: PayloadAction<number>) => {
-      if (action.payload >= 0 && action.payload < state.files.length) {
-        // Mark previous active file as inactive
-        if (state.files[state.activeFileIndex]) {
-          state.files[state.activeFileIndex].isActive = false;
-        }
-        
-        // Set new active file
-        state.activeFileIndex = action.payload;
-        state.files[action.payload].isActive = true;
+    selectFile: (state, action: PayloadAction<string>) => {
+      const file = state.files.find(f => f.id === action.payload);
+      if (file) {
+        state.activeFileId = action.payload;
       }
     },
 
-    updateFileContent: (state, action: PayloadAction<{ index: number; content: string }>) => {
-      const { index, content } = action.payload;
-      if (state.files[index]) {
-        state.files[index].content = content;
-        state.files[index].isModified = true;
+    updateFileContent: (state, action: PayloadAction<{ fileId: string; content: string }>) => {
+      const { fileId, content } = action.payload;
+      const file = state.files.find(f => f.id === fileId);
+      if (file) {
+        file.content = content;
+        file.modified = true;
       }
     },
 
-    saveFile: (state, action: PayloadAction<number>) => {
-      if (state.files[action.payload]) {
-        state.files[action.payload].isModified = false;
+    saveFile: (state, action: PayloadAction<string>) => {
+      const file = state.files.find(f => f.id === action.payload);
+      if (file) {
+        file.modified = false;
       }
     },
 
     saveAllFiles: (state) => {
       state.files.forEach(file => {
-        file.isModified = false;
+        file.modified = false;
       });
     },
 
@@ -88,7 +92,7 @@ const editorSlice = createSlice({
     // Utility actions
     clearFiles: (state) => {
       state.files = [];
-      state.activeFileIndex = 0;
+      state.activeFileId = null;
     },
 
     resetEditor: () => {
@@ -105,67 +109,64 @@ const editorSlice = createSlice({
       if (generatedCode.frontend) {
         const extension = generatedCode.framework === 'VUE' ? '.vue' : '.tsx';
         newFiles.push({
-          path: `src/App${extension}`,
+          id: `file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          name: `App${extension}`,
           content: generatedCode.frontend,
           language: generatedCode.framework === 'VUE' ? 'vue' : 'typescript',
-          isModified: false,
-          isActive: true,
+          modified: false,
         });
       }
 
       // Add backend file if available
       if (generatedCode.backend) {
         newFiles.push({
-          path: 'server/index.ts',
+          id: `file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          name: 'server.ts',
           content: generatedCode.backend,
           language: 'typescript',
-          isModified: false,
-          isActive: false,
+          modified: false,
         });
       }
 
       // Add database schema if available
       if (generatedCode.database) {
         newFiles.push({
-          path: 'prisma/schema.prisma',
+          id: `file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          name: 'schema.prisma',
           content: generatedCode.database,
           language: 'prisma',
-          isModified: false,
-          isActive: false,
+          modified: false,
         });
       }
 
       // Add package.json
       if (generatedCode.packageJson) {
         newFiles.push({
-          path: 'package.json',
+          id: `file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          name: 'package.json',
           content: JSON.stringify(generatedCode.packageJson, null, 2),
           language: 'json',
-          isModified: false,
-          isActive: false,
+          modified: false,
         });
       }
 
       // Add additional files
-      generatedCode.files.forEach((file: any) => {
-        const language = getLanguageFromPath(file.path);
-        newFiles.push({
-          path: file.path,
-          content: file.content,
-          language,
-          isModified: false,
-          isActive: false,
+      if (generatedCode.files) {
+        generatedCode.files.forEach((file: any) => {
+          const language = getLanguageFromPath(file.name);
+          newFiles.push({
+            id: `file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            name: file.name,
+            content: file.content,
+            language,
+            modified: false,
+          });
         });
-      });
+      }
 
       // Replace current files
       state.files = newFiles;
-      state.activeFileIndex = 0;
-      
-      // Mark first file as active
-      if (state.files.length > 0) {
-        state.files[0].isActive = true;
-      }
+      state.activeFileId = newFiles.length > 0 ? newFiles[0].id : null;
     });
 
     // Handle code refinement
@@ -173,24 +174,24 @@ const editorSlice = createSlice({
       const { generatedCode } = action.payload;
       
       // Update existing files with refined code
-      if (generatedCode.frontend && state.files[0]) {
+      if (generatedCode.frontend && state.files.length > 0) {
         state.files[0].content = generatedCode.frontend;
-        state.files[0].isModified = true;
+        state.files[0].modified = true;
       }
 
       if (generatedCode.backend) {
-        const backendFileIndex = state.files.findIndex(f => f.path.includes('server') || f.path.includes('backend'));
-        if (backendFileIndex !== -1) {
-          state.files[backendFileIndex].content = generatedCode.backend;
-          state.files[backendFileIndex].isModified = true;
+        const backendFile = state.files.find(f => f.name.includes('server') || f.name.includes('backend'));
+        if (backendFile) {
+          backendFile.content = generatedCode.backend;
+          backendFile.modified = true;
         }
       }
 
       if (generatedCode.database) {
-        const dbFileIndex = state.files.findIndex(f => f.path.includes('prisma') || f.path.includes('schema'));
-        if (dbFileIndex !== -1) {
-          state.files[dbFileIndex].content = generatedCode.database;
-          state.files[dbFileIndex].isModified = true;
+        const dbFile = state.files.find(f => f.name.includes('prisma') || f.name.includes('schema'));
+        if (dbFile) {
+          dbFile.content = generatedCode.database;
+          dbFile.modified = true;
         }
       }
     });
@@ -259,9 +260,9 @@ function getLanguageFromPath(path: string): string {
 }
 
 export const {
-  addFile,
+  createFile,
   removeFile,
-  setActiveFile,
+  selectFile,
   updateFileContent,
   saveFile,
   saveAllFiles,

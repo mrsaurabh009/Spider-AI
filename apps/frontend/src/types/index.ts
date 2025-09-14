@@ -3,6 +3,7 @@ export interface User {
   id: string;
   email: string;
   username: string;
+  name?: string;
   firstName?: string;
   lastName?: string;
   avatar?: string;
@@ -162,16 +163,16 @@ export interface PaginatedResponse<T> {
 
 // Editor Types
 export interface EditorFile {
-  path: string;
+  id: string;
+  name: string;
   content: string;
   language: string;
-  isModified: boolean;
-  isActive: boolean;
+  modified: boolean;
 }
 
 export interface EditorState {
   files: EditorFile[];
-  activeFileIndex: number;
+  activeFileId: string | null;
   theme: 'vs-light' | 'vs-dark';
   fontSize: number;
   tabSize: number;
@@ -181,36 +182,11 @@ export interface EditorState {
 
 // Preview Types
 export interface PreviewState {
-  isVisible: boolean;
-  mode: 'split' | 'fullscreen' | 'hidden';
-  url: string;
+  previewUrl: string | null;
   isLoading: boolean;
-  error: string | null;
-  zoom: number;
-  autoRefresh: boolean;
-  refreshInterval: number;
-  lastRefresh: string | null;
-  consoleOutput: Array<{
-    type: 'log' | 'error' | 'warn' | 'info';
-    message: string;
-    timestamp: string;
-    source?: string;
-  }>;
-  networkRequests: Array<{
-    id: string;
-    method: string;
-    url: string;
-    status?: number;
-    duration?: number;
-    timestamp: string;
-    size?: number;
-  }>;
-  performanceMetrics: {
-    loadTime?: number;
-    renderTime?: number;
-    memoryUsage?: number;
-    bundleSize?: number;
-  } | null;
+  htmlContent: string | null;
+  cssContent: string | null;
+  jsContent: string | null;
 }
 
 // Export Types
@@ -370,6 +346,7 @@ export interface AuthState {
   isLoading: boolean;
   isAuthenticated: boolean;
   error: string | null;
+  promptCount: number;
 }
 
 export interface ProjectsState {

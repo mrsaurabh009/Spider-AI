@@ -195,6 +195,14 @@ const chatSlice = createSlice({
         );
       }
     },
+
+    // Clear chat messages
+    clearChat: (state) => {
+      if (state.currentConversation) {
+        state.currentConversation.messages = [];
+        state.currentConversation.updatedAt = new Date().toISOString();
+      }
+    },
   },
   extraReducers: (builder) => {
     // Generate Code
@@ -387,8 +395,96 @@ This explanation should help you understand how the code works and its key featu
         state.isLoading = false;
         state.error = action.payload as string;
       });
+
+    // Send Message
+    builder
+      .addCase(sendMessage.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(sendMessage.fulfilled, (state, action) => {
+        state.isLoading = false;
+        
+        if (state.currentConversation) {
+          // Remove typing indicator
+          state.currentConversation.messages = state.currentConversation.messages.filter(
+            m => m.id !== 'typing-indicator'
+          );
+          
+          // Add AI response
+          const assistantMessage: ChatMessage = {
+            id: uuidv4(),
+            role: 'assistant',
+            content: action.payload.message || 'I received your message and I\'m working on generating code for you.',
+            timestamp: new Date().toISOString(),
+            generatedCode: action.payload,
+          };
+          
+          state.currentConversation.messages.push(assistantMessage);
+          state.currentConversation.updatedAt = new Date().toISOString();
+        }
+      })
+      .addCase(sendMessage.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+        
+        if (state.currentConversation) {
+          // Remove typing indicator
+          state.currentConversation.messages = state.currentConversation.messages.filter(
+            m => m.id !== 'typing-indicator'
+          );
+        }
+      });
   },
 });
+
+// Send message async thunk
+export const sendMessage = createAsyncThunk(
+  'chat/sendMessage',
+  async (
+    { projectId, message }: { projectId: string; message: string },
+    { dispatch, getState, rejectWithValue }
+  ) => {
+    try {
+      const state = getState() as any;
+      
+      // Check if user can send messages (5 prompt limit for unauthenticated users)
+      if (!state.auth.isAuthenticated && state.auth.promptCount >= 5) {
+        return rejectWithValue('Please sign up to continue using Spider AI after 5 free prompts.');
+      }
+      
+      // Increment prompt count for unauthenticated users
+      if (!state.auth.isAuthenticated) {
+        const { incrementPromptCount } = await import('./authSlice');
+        dispatch(incrementPromptCount());
+      }
+      
+      // Add user message first
+      dispatch(addMessage({
+        role: 'user',
+        content: message,
+      }));
+      
+      // Set typing indicator
+      dispatch(setTypingIndicator(true));
+      
+      // Call AI service to generate response
+      const response = await chatAPI.generateCode({
+        prompt: message,
+        projectId,
+        framework: 'React',
+        type: 'Web Application'
+      });
+      
+      // Remove typing indicator
+      dispatch(setTypingIndicator(false));
+      
+      return response.data;
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to send message');
+    }
+  }
+);
 
 export const {
   startNewConversation,
@@ -398,6 +494,7 @@ export const {
   deleteConversation,
   clearError,
   setTypingIndicator,
+  clearChat,
 } = chatSlice.actions;
 
 export default chatSlice.reducer;

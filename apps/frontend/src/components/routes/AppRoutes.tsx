@@ -11,6 +11,7 @@ import Register from '../auth/Register';
 import ForgotPassword from '../auth/ForgotPassword';
 
 // Main app components
+import Landing from '../landing/Landing';
 import Dashboard from '../projects/Dashboard';
 import ProjectEditor from '../editor/ProjectEditor';
 import ProjectSettings from '../projects/ProjectSettings';
@@ -41,7 +42,7 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (isAuthenticated) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/app/dashboard" replace />;
   }
 
   return <>{children}</>;
@@ -50,6 +51,9 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 function AppRoutes() {
   return (
     <Routes>
+      {/* Landing page - accessible to everyone */}
+      <Route path="/" element={<Landing />} />
+      
       {/* Public routes */}
       <Route path="/auth" element={<AuthLayout />}>
         <Route
@@ -81,14 +85,14 @@ function AppRoutes() {
 
       {/* Protected routes */}
       <Route
-        path="/"
+        path="/app"
         element={
           <ProtectedRoute>
             <MainLayout />
           </ProtectedRoute>
         }
       >
-        <Route index element={<Navigate to="/dashboard" replace />} />
+        <Route index element={<Navigate to="/app/dashboard" replace />} />
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="project/:projectId" element={<ProjectEditor />} />
         <Route path="project/:projectId/settings" element={<ProjectSettings />} />

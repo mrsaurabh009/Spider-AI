@@ -7,6 +7,7 @@ const initialState: AuthState = {
   isLoading: false,
   isAuthenticated: false,
   error: null,
+  promptCount: 0,
 };
 
 const authSlice = createSlice({
@@ -41,6 +42,14 @@ const authSlice = createSlice({
     clearError: (state) => {
       state.error = null;
     },
+    
+    incrementPromptCount: (state) => {
+      state.promptCount += 1;
+    },
+    
+    resetPromptCount: (state) => {
+      state.promptCount = 0;
+    },
   },
 });
 
@@ -51,6 +60,8 @@ export const {
   setLoading,
   setError,
   clearError,
+  incrementPromptCount,
+  resetPromptCount,
 } = authSlice.actions;
 
 export default authSlice.reducer;
